@@ -5,13 +5,13 @@
 #
 #         USAGE: ./createplaylist.sh
 #
-#   DESCRIPTION:
+#   DESCRIPTION: Created a playlist and ezstream config file for streaming to an icecast server.
 #
 #       OPTIONS: ---
-#  REQUIREMENTS: ---
+#  REQUIREMENTS: ezstream, lame and icecast server.
 #          BUGS: ---
 #         NOTES: ---
-#        AUTHOR: YOUR NAME (),
+#        AUTHOR: Erwin van Londen
 #  ORGANIZATION:
 #       CREATED: 11/08/20 14:55
 #      REVISION:  ---
