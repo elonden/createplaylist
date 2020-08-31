@@ -32,6 +32,7 @@
 
 set -o nounset                              # Treat unset variables as an error
 set -o noglob
+set -x
 umask 0127
 
 _rootdir=/home/erwin/Music
@@ -55,8 +56,8 @@ if [[ -f ${_rootdir}/ezstream_unamepwd ]]; then
     _uname=$(awk -F: '{print $1}' "${_rootdir}"/ezstream_unamepwd)
     _pwd=$(awk -F: '{print $2}' "${_rootdir}"/ezstream_unamepwd)
 else
-    read -i -e -p "Icecast server source username :" _uname
-    read -i -e -p "Icecast server source password :" _pwd
+    read -r -e -p "Icecast server source username :" _uname
+    read -r -e -p "Icecast server source password :" _pwd
 fi
 
 trap '
@@ -67,37 +68,72 @@ rm "${_ezxml}"
 xml() {
 # Generate the new xml file to be used by ezstream
 cat <<- EOF > ${_ezxml}
+<?xml version="1.0" encoding="UTF-8"?>
 <ezstream>
-    <url>${_url}:${_port}/${_base}/${_stream}</url>
-    <sourceuser>${_uname}</sourceuser>
-    <sourcepassword>${_pwd}</sourcepassword>
+<servers>
+<server>
+    <name>pi</name>
+    <protocol>HTTP</protocol>
+    <hostname>evlonden.no-ip.biz</hostname>
+    <port>${_port}</port>
+    <user>${_uname}</user>
+    <password>${_pwd}</password>
+    <reconnect_attempts>3</reconnect_attempts>
+    <tls>None</tls>
+</server>
+</servers>
+<streams>
+<stream>
+    <name>${_stream}</name>
+    <mountpoint>${_stream}</mountpoint>
+    <public>1</public>
+    <intake>playlist</intake>
+    <server>pi</server>
     <format>MP3</format>
+    <encoder>lame</encoder>
+    <stream_name>${_infoname}</stream_name>
+    <stream_url>${_url}:${_port}/${_base}/${_stream}</stream_url>
+    <stream_genre>${_infogenre}</stream_genre>
+    <stream_description>${_infodesc}</stream_description>
+    <stream_bitrate>${_infobitrate}</stream_bitrate>
+</stream>
+</streams>
+<intakes>
+<intake>
+    <name>playlist</name>
+    <type>playlist</type>
     <filename>${_rootdir}/${_playlist}</filename>
-    <metadata_format>@a@ - @t@</metadata_format>
-    <svrinfoname>${_infoname}</svrinfoname>
-    <svrinfogenre>${_infogenre}</svrinfogenre>
-    <svrinfodescription>${_infodesc}</svrinfodescription>
-    <svrinfobitrate>${_infobitrate}</svrinfobitrate>
-    <svrinfopublic>${_infopublic}</svrinfopublic>
     <shuffle>1</shuffle>
     <stream_once>0</stream_once>
-
-    <reencode>
-        <enable>1</enable>
-        <encdec>
-            <format>MP3</format>
-            <match>.mp3</match>
-            <decode>lame --quiet --mp3input --decode @T@ "-"</decode>
-            <encode>lame --quiet -m s -b 48 -B 128 --abr ${_infobitrate} --tt @t@ --ta @a@ "-"</encode>
-        </encdec>
-    </reencode>
+</intake>
+</intakes>
+<metadata>
+    <format_str>@a@ - @t@</format_str>
+    <refresh_interval>-1</refresh_interval>
+    <normalise_strings>0</normalise_strings>
+    <no_updates>0</no_updates>
+</metadata>
+<decoders>
+<decoder>
+    <name>lame</name>
+    <program>lame --quiet --mp3input --decode @T@ "-"</program>
+    <file_ext>mp3</file_ext>
+</decoder>
+</decoders>
+<encoders>
+<encoder>
+    <name>lame</name>
+    <format>MP3</format>
+    <program>lame --quiet -m s -b 48 -B 128 --abr ${_infobitrate} --tt @t@ --ta @a@ "-"</program>
+</encoder>
+</encoders>
 </ezstream>
 EOF
-chmod 644 "${_ezxml}"
+chmod 640 "${_ezxml}"
 }
 
 function playlist( ) {
-find "${_searchdir}" -iname "${_searchstring}*.mp3" | sort -u -R | head -100 > "${_rootdir}/${_playlist}"
+find "${_searchdir}" -atime +1 -iname "${_searchstring}*.mp3" | sort -u -R | head -100 > "${_rootdir}/${_playlist}"
 }
 
 usage() {
@@ -167,7 +203,7 @@ if [[ -n $(pgrep ezstream) ]]; then
     sleep 2
     kill -HUP $(pgrep ezstream)
 else
-    playlist 
+    playlist
     echo -e "\n Put your browser to url : ${_url}:${_port}/${_base}/${_stream}"
     $(which ezstream) -c "${_ezxml}"
 fi
